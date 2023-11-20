@@ -18,6 +18,10 @@
 // under the License.
 
 import XCRemoteCache
+import Foundation
+
+Thread.sleep(forTimeInterval: 1)
+
 
 // Extra Xcode buildstep that verifies if the remotely available artifact can be used locally
 // (1) Fetches meta json for a currently used commit, compares a local fingerprint of all dependencies found

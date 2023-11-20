@@ -1,0 +1,17 @@
+PATH
+  remote: .
+  specs:
+    cocoapods-xcremotecache (0.0.18)
+
+GEM
+  remote: https://gems.ruby-china.com/
+  specs:
+
+PLATFORMS
+  x86_64-darwin-21
+
+DEPENDENCIES
+  cocoapods-xcremotecache!
+
+BUNDLED WITH
+   2.3.26

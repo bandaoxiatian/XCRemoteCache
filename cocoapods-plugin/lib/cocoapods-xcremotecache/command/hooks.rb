@@ -107,7 +107,7 @@ module CocoapodsXCRemoteCacheModifier
       end
 
       # @param target [Target] target to apply XCRemoteCache
-      # @param repo_distance [Integer] distance from the git repo root to the target's $SRCROOT
+      # @param repo_distance [Integer] distance from the git repo root to the target's $(SRCROOT)
       # @param xc_location [String] path to the dir with all XCRemoteCache binaries, relative to the repo root
       # @param xc_cc_path [String] path to the XCRemoteCache clang wrapper, relative to the repo root
       # @param mode [String] mode name ('consumer', 'producer', 'producer-fast' etc.)
@@ -134,23 +134,23 @@ module CocoapodsXCRemoteCacheModifier
           # apply only for relevant Configurations
           next if exclude_build_configurations.include?(config.name)
           if mode == 'consumer'
-            reset_build_setting(config.build_settings, 'CC', "$SRCROOT/#{parent_dir(xc_cc_path, repo_distance)}", exclude_sdks_configurations)
+            reset_build_setting(config.build_settings, 'CC', "$(SRCROOT)/#{parent_dir(xc_cc_path, repo_distance)}", exclude_sdks_configurations)
           elsif mode == 'producer' || mode == 'producer-fast'
             config.build_settings.delete('CC') if config.build_settings.key?('CC')
           end
           swiftc_name = enable_swift_driver_integration ? 'swiftc' : 'xcswiftc'
-          reset_build_setting(config.build_settings, 'SWIFT_EXEC', "$SRCROOT/#{srcroot_relative_xc_location}/#{swiftc_name}", exclude_sdks_configurations)
-          reset_build_setting(config.build_settings, 'LIBTOOL', "$SRCROOT/#{srcroot_relative_xc_location}/xclibtool", exclude_sdks_configurations)
+          reset_build_setting(config.build_settings, 'SWIFT_EXEC', "$(SRCROOT)/#{srcroot_relative_xc_location}/#{swiftc_name}", exclude_sdks_configurations)
+          reset_build_setting(config.build_settings, 'LIBTOOL', "$(SRCROOT)/#{srcroot_relative_xc_location}/xclibtool", exclude_sdks_configurations)
           # Setting LIBTOOL to '' breaks SwiftDriver intengration so resetting it to the original value 'libtool' for all excluded configurations
           add_build_setting_for_sdks(config.build_settings, 'LIBTOOL', 'libtool', exclude_sdks_configurations)
-          reset_build_setting(config.build_settings, 'LD', "$SRCROOT/#{srcroot_relative_xc_location}/xcld", exclude_sdks_configurations)
-          reset_build_setting(config.build_settings, 'LDPLUSPLUS', "$SRCROOT/#{srcroot_relative_xc_location}/xcldplusplus", exclude_sdks_configurations)
-          reset_build_setting(config.build_settings, 'LIPO', "$SRCROOT/#{srcroot_relative_xc_location}/xclipo", exclude_sdks_configurations)
+          reset_build_setting(config.build_settings, 'LD', "$(SRCROOT)/#{srcroot_relative_xc_location}/xcld", exclude_sdks_configurations)
+          reset_build_setting(config.build_settings, 'LDPLUSPLUS', "$(SRCROOT)/#{srcroot_relative_xc_location}/xcldplusplus", exclude_sdks_configurations)
+          reset_build_setting(config.build_settings, 'LIPO', "$(SRCROOT)/#{srcroot_relative_xc_location}/xclipo", exclude_sdks_configurations)
           reset_build_setting(config.build_settings, 'SWIFT_USE_INTEGRATED_DRIVER', 'NO', exclude_sdks_configurations) unless enable_swift_driver_integration
 
           reset_build_setting(config.build_settings, 'XCREMOTE_CACHE_FAKE_SRCROOT', fake_src_root, exclude_sdks_configurations)
           reset_build_setting(config.build_settings, 'XCRC_PLATFORM_PREFERRED_ARCH', "$(LINK_FILE_LIST_$(CURRENT_VARIANT)_$(PLATFORM_PREFERRED_ARCH):dir:standardizepath:file:default=arm64)", exclude_sdks_configurations)
-          reset_build_setting(config.build_settings, XCRC_COOCAPODS_ROOT_KEY, "$SRCROOT/#{srcroot_relative_project_location}", exclude_sdks_configurations)
+          reset_build_setting(config.build_settings, XCRC_COOCAPODS_ROOT_KEY, "$(SRCROOT)/#{srcroot_relative_project_location}", exclude_sdks_configurations)
           debug_prefix_map_replacement = '$(SRCROOT' + ':dir:standardizepath' * repo_distance + ')'
           add_cflags!(config.build_settings, '-fdebug-prefix-map', "#{debug_prefix_map_replacement}=$(XCREMOTE_CACHE_FAKE_SRCROOT)", exclude_sdks_configurations)
           add_swiftflags!(config.build_settings, '-debug-prefix-map', "#{debug_prefix_map_replacement}=$(XCREMOTE_CACHE_FAKE_SRCROOT)", exclude_sdks_configurations)
@@ -167,8 +167,8 @@ module CocoapodsXCRemoteCacheModifier
           end
 
           prebuild_script = existing_prebuild_script || target.new_shell_script_build_phase("[XCRC] Prebuild #{target.name}")
-          prebuild_script.shell_script = "\"$SCRIPT_INPUT_FILE_0\""
-          prebuild_script.input_paths = ["$SRCROOT/#{srcroot_relative_xc_location}/xcprebuild"]
+          prebuild_script.shell_script = "\"$SCRIPT_INPUT_FILE_0\"\n"
+          prebuild_script.input_paths = ["${SRCROOT}/#{srcroot_relative_xc_location}/xcprebuild"]
           prebuild_script.output_paths = [
             "$(TARGET_TEMP_DIR)/rc.enabled",
             "$(DWARF_DSYM_FOLDER_PATH)/$(DWARF_DSYM_FILE_NAME)"
@@ -196,8 +196,8 @@ module CocoapodsXCRemoteCacheModifier
           end
         end
         postbuild_script = existing_postbuild_script || target.new_shell_script_build_phase("[XCRC] Postbuild #{target.name}")
-        postbuild_script.shell_script = "\"$SCRIPT_INPUT_FILE_0\""
-        postbuild_script.input_paths = ["$SRCROOT/#{srcroot_relative_xc_location}/xcpostbuild"]
+        postbuild_script.shell_script = "\"$SCRIPT_INPUT_FILE_0\"\n"
+        postbuild_script.input_paths = ["${SRCROOT}/#{srcroot_relative_xc_location}/xcpostbuild"]
         postbuild_script.output_paths = [
           "$(TARGET_BUILD_DIR)/$(MODULES_FOLDER_PATH)/$(PRODUCT_MODULE_NAME).swiftmodule/$(XCRC_PLATFORM_PREFERRED_ARCH).swiftmodule.md5",
           "$(TARGET_BUILD_DIR)/$(MODULES_FOLDER_PATH)/$(PRODUCT_MODULE_NAME).swiftmodule/$(XCRC_PLATFORM_PREFERRED_ARCH)-$(LLVM_TARGET_TRIPLE_VENDOR)-$(SWIFT_PLATFORM_TARGET_PREFIX)$(LLVM_TARGET_TRIPLE_SUFFIX).swiftmodule.md5"
@@ -217,8 +217,8 @@ module CocoapodsXCRemoteCacheModifier
             end
           end
           mark_script = existing_mark_script || target.new_shell_script_build_phase("[XCRC] Mark")
-          mark_script.shell_script = "\"$SCRIPT_INPUT_FILE_0\" mark --configuration \"$CONFIGURATION\" --platform $PLATFORM_NAME"
-          mark_script.input_paths = ["$SRCROOT/#{srcroot_relative_xc_location}/xcprepare"]
+          mark_script.shell_script = "\"$SCRIPT_INPUT_FILE_0\" mark --configuration \"$CONFIGURATION\" --platform $PLATFORM_NAME\n"
+          mark_script.input_paths = ["${SRCROOT}/#{srcroot_relative_xc_location}/xcprepare"]
         else
           # Delete existing mark build phase (to support switching between modes or changing the final target)
           target.build_phases.delete_if do |phase|

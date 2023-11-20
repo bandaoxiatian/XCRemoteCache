@@ -17,4 +17,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import Foundation
+
+Thread.sleep(forTimeInterval: 1)
 XCPrepareMain.main()
