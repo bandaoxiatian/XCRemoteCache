@@ -44,6 +44,14 @@ module CocoapodsXCRemoteCacheModifier
     ]
 
     class XCRemoteCache
+      @prepare_result = nil
+      class << self
+        # @liguoqiangbj01: Cache `xcprepare` result in pre-install, for reusing in post-install phase.
+        attr_accessor :prepare_result
+      end
+    end
+
+    class XCRemoteCache
       @@configuration = nil
 
       def self.configure(c)
@@ -260,6 +268,13 @@ module CocoapodsXCRemoteCacheModifier
           File.open(File.join(directory, '.rcinfo'), 'w') { |file| file.write info.to_yaml }
       end
 
+      # @liguoqiangbj01: Verify consumer prepare phase success or not
+      def self.verify_prepare_result(prepare_result)
+        return false if prepare_result.nil?
+        return false unless prepare_result.is_a?(Hash)
+        return prepare_result['result']
+      end
+
       def self.download_xcrc_if_needed(local_location)
         required_binaries = ['xcld', 'xcldplusplus', 'xclibtool', 'xclipo', 'xcpostbuild', 'xcprebuild', 'xcprepare', 'xcswiftc']
         binaries_exist = required_binaries.reduce(true) do |exists, filename|
@@ -461,9 +476,20 @@ module CocoapodsXCRemoteCacheModifier
           File.delete(remote_commit_file_absolute) if File.exist?(remote_commit_file_absolute)
 
           prepare_result = YAML.load`#{xcrc_location_absolute}/xcprepare --configuration #{check_build_configuration} --platform #{check_platform}`
-          if !prepare_result['result'] && mode == 'consumer'
-            # Remote cache is still disabled - no need to force Pods projects/targets regeneration
-            next
+          self.prepare_result =prepare_result
+          unless verify_prepare_result(prepare_result)
+            Pod::UI.puts "[XCRC] xcprepare failed, and retry in offline mode."
+            prepare_result = YAML.load`#{xcrc_location_absolute}/xcprepare offline`
+            self.prepare_result =prepare_result
+            if verify_prepare_result(prepare_result)
+              Pod::UI.puts "[XCRC] xcprepare offline succeed, but the cache server or artifacts maybe unavailable.".yellow
+            else
+              Pod::UI.puts "[XCRC] xcprepare offline failed, and we skipped. You might need check the reason.".yellow
+            end
+            unless verify_prepare_result(prepare_result) && mode == 'consumer'
+              # Remote cache is still disabled - no need to force Pods projects/targets regeneration
+              next
+            end
           end
 
           # Force rebuilding all Pods project, because XCRC build steps and settings need to be added to Pods project/targets
@@ -515,7 +541,8 @@ module CocoapodsXCRemoteCacheModifier
           save_rcinfo(root_rcinfo, user_proj_directory)
 
           # Remove previous xccc
-          File.delete(xccc_location_absolute) if File.exist?(xccc_location_absolute)
+          # @liguoqiangbj01: No need, cause that remove and complies it in pre-install anyway.
+          # File.delete(xccc_location_absolute) if File.exist?(xccc_location_absolute)
 
           # Prepare XCRC
 
@@ -565,21 +592,22 @@ module CocoapodsXCRemoteCacheModifier
             installer_context.pods_project.save()
           end
 
+          # @liguoqiangbj01: integrate xcrc anyway, even when cache server/artifacts are unavailable.
           # Enabled/disable XCRemoteCache for the main (user) project
-          begin
-            # TODO: Do not compile xcc again. `xcprepare` compiles it in pre-install anyway
-            prepare_result = YAML.load`#{xcrc_location_absolute}/xcprepare --configuration #{check_build_configuration} --platform #{check_platform}`
-            unless prepare_result['result'] || mode != 'consumer'
-              # Uninstall the XCRemoteCache for the consumer mode
-              disable_xcremotecache(user_project, installer_context.pods_project)
-              Pod::UI.puts "[XCRC] XCRemoteCache disabled - no artifacts available"
-              next
-            end
-          rescue => error
-            disable_xcremotecache(user_project, installer_context.pods_project)
-            Pod::UI.puts "[XCRC] XCRemoteCache failed with an error: #{error}."
-            next
-          end
+          # begin
+          #   # TODO: Do not compile xcc again. `xcprepare` compiles it in pre-install anyway
+          #   prepare_result = YAML.load`#{xcrc_location_absolute}/xcprepare --configuration #{check_build_configuration} --platform #{check_platform}`
+          #   unless prepare_result['result'] || mode != 'consumer'
+          #     # Uninstall the XCRemoteCache for the consumer mode
+          #     disable_xcremotecache(user_project, installer_context.pods_project)
+          #     Pod::UI.puts "[XCRC] XCRemoteCache disabled - no artifacts available"
+          #     next
+          #   end
+          # rescue => error
+          #   disable_xcremotecache(user_project, installer_context.pods_project)
+          #   Pod::UI.puts "[XCRC] XCRemoteCache failed with an error: #{error}."
+          #   next
+          # end
 
 
           # Attach XCRC to the app targets
